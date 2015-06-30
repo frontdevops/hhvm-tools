@@ -1,0 +1,98 @@
+#!/bin/bash
+#
+# /etc/rc.d/init.d/hhvm
+#
+# Starts the hhvm daemon
+#
+# chkconfig: 345 26 74
+# description: HHVM (aka the HipHop Virtual Machine) is an open-source virtual machine designed for executing programs written in Hack and PHP
+# processname: hhvm
+### BEGIN INIT INFO
+# Provides: hhvm
+# Required-Start: $local_fs
+# Required-Stop: $local_fs
+# Default-Start:  2 3 4 5
+# Default-Stop: 0 1 6
+# Short-Description: start and stop hhvm
+# Description: HHVM (aka the HipHop Virtual Machine) is an open-source virtual machine designed for executing programs written in Hack and PHP
+### END INIT INFO
+
+# Source function library.
+. /etc/rc.d/init.d/functions
+
+# hhvm --mode server -vServer.Type=fastcgi -vEval.EnableXHP=1 -vServer.Port=9001
+hhvm=/usr/bin/hhvm
+prog=`/bin/basename $hhvm`
+lockfile=/var/lock/subsys/hhvm
+pidfile=/var/run/hhvm/pid
+user=hhvm
+
+RETVAL=0
+
+cfgsrv=/etc/hhvm/server.ini
+cfgphp=/etc/hhvm/php.ini
+
+test -x $hhvm || exit 1
+
+start() {
+	cmd="$hhvm -c $cfgsrv -c $cfgphp -m daemon -user $user"
+	echo $cmd
+    echo -n $"Starting $prog: "
+#    daemon --pidfile ${pidfile} ${hhvm} --config /etc/hhvm/server.ini --mode server
+	$cmd
+    RETVAL=$?
+    echo [OK]
+    [ $RETVAL = 0 ] && touch ${lockfile}
+    return $RETVAL
+}
+
+stop() {
+    echo -n $"Stopping $prog: "
+    #killproc -p ${pidfile} ${prog}
+    RETVAL=$?
+    #echo
+    #[ $RETVAL = 0 ] && rm -f ${lockfile} ${pidfile}
+	rm -f ${lockfile} ${pidfile}
+	pgrep hhvm | xargs -i kill {}
+}
+
+rh_status() {
+    status -p ${pidfile} ${hhvm}
+}
+
+
+sleep_show() {
+    for i in `echo -n|awk "END{for(i=0;i<$1;i++)print i;}"`
+    do
+        echo -n .
+        sleep 1
+    done
+}
+
+
+case "$1" in
+  start)
+        rh_status >/dev/null 2>&1 && exit 0
+        start
+        ;;
+  stop)
+        stop
+        ;;
+
+  reload|force-reload|restart|try-restart)
+        /etc/init.d/hhvm stop
+		sleep_show 4
+        start
+        ;;
+
+  status)
+        rh_status
+        RETVAL=$?
+        ;;
+
+  *)
+        echo "Usage: /etc/init.d/hhvm {start|stop|restart|status}"
+        exit 2
+esac
+
+exit $RETVAL
